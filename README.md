@@ -12,6 +12,8 @@ stuff it has:
 - a lot of logging, and log rotation for projects
 - a cli
 
+![showcase image](./assets/showcase.png)
+
 ## how to build
 
 to build the project, you need gcc/clang and cmake
