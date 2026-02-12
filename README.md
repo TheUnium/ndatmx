@@ -41,13 +41,12 @@ restart_on_success = false
 max_retries = 5
 
 [commands:termux]
-1="pkg install -y bun"
-2="bun install"
-3="bun run src/index.ts"
+1="npm install"
+2="npm run start"
 
 [commands:debian13]
-3="bun install"
-4="bun run src/index.ts"
+1="bun install"
+2="bun run src/index.ts"
 ```
 
 ### 1. start the daemon
