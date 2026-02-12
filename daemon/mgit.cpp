@@ -4,51 +4,94 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <fcntl.h>
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <vector>
 
 static bool dExists(const std::string &p) {
   struct stat st;
   return stat(p.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
 }
 
-static bool fExists(const std::string &p) {
-  struct stat st;
-  return stat(p.c_str(), &st) == 0;
-}
-
-static int cexec(const std::string &c, std::string *o) {
+static int cexec_d(const std::vector<std::string> &args,
+                   const std::string &wd = "", std::string *o = nullptr) {
   if (o)
     o->clear();
-  const char *tmp_env = std::getenv("TMPDIR");
-  std::string tmp_dir = tmp_env ? tmp_env : "/tmp";
-  std::string t = tmp_dir + "/ndatmx_cmd_" + std::to_string(getpid()) + ".out";
-  std::string f = c + " > '" + t + "' 2>&1";
+  if (args.empty())
+    return -1;
 
-  int rc = system(f.c_str());
+  const char *te = std::getenv("TMPDIR");
+  std::string td = te ? te : "/tmp";
+  std::string tf = td + "/ndatmx_cmd_" + std::to_string(getpid()) + "_" +
+                   std::to_string(rand()) + ".out";
+
+  pid_t pid = fork();
+  if (pid < 0)
+    return -1;
+
+  if (pid == 0) {
+    if (!wd.empty()) {
+      if (chdir(wd.c_str()) != 0)
+        _exit(127);
+    }
+
+    int fd = open(tf.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd >= 0) {
+      dup2(fd, STDOUT_FILENO);
+      dup2(fd, STDERR_FILENO);
+      close(fd);
+    }
+
+    signal(SIGCHLD, SIG_DFL);
+    signal(SIGPIPE, SIG_DFL);
+
+    std::vector<char *> av;
+    for (auto &a : args)
+      av.push_back(const_cast<char *>(a.c_str()));
+    av.push_back(nullptr);
+
+    execvp(av[0], av.data());
+    _exit(127);
+  }
+
+  int st = 0;
+  pid_t r;
+  do {
+    r = waitpid(pid, &st, 0);
+  } while (r == -1 && errno == EINTR);
+
   if (o) {
-    std::ifstream f(t);
+    std::ifstream f(tf);
     if (f.is_open()) {
       std::stringstream ss;
       ss << f.rdbuf();
       *o = ss.str();
     }
   }
+  unlink(tf.c_str());
 
-  unlink(t.c_str());
-  if (rc == -1)
+  if (r == -1)
     return -1;
-  if (WIFEXITED(rc))
-    return WEXITSTATUS(rc);
+  if (WIFEXITED(st))
+    return WEXITSTATUS(st);
   return -1;
 }
 
 int mgit::rIn(const std::string &dir, const std::string &args, std::string *o) {
-  std::string c = "cd '" + dir + "' && git " + args;
-  return cexec(c, o);
-};
+  std::vector<std::string> av;
+  av.push_back("git");
+  std::istringstream iss(args);
+  std::string tk;
+  while (iss >> tk)
+    av.push_back(tk);
+
+  return cexec_d(av, dir, o);
+}
 
 bool mgit::clone(const std::string &url, const std::string &dp,
                  const std::string &branch) {
@@ -57,22 +100,19 @@ bool mgit::clone(const std::string &url, const std::string &dp,
   }
 
   std::string o;
-  std::string c = "git clone --branch '" + branch + "' --single-branch '" +
-                  url + "' '" + dp + "'";
-  cexec(c, &o);
+  cexec_d({"git", "clone", "--branch", branch, "--single-branch", url, dp}, "",
+          &o);
 
   if (dExists(dp + "/.git")) {
     return true;
   }
 
   if (dExists(dp)) {
-    std::string rm_c = "rm -rf '" + dp + "'";
-    cexec(rm_c, &o);
+    cexec_d({"rm", "-rf", dp});
     usleep(100000);
   }
 
-  c = "git clone '" + url + "' '" + dp + "'";
-  cexec(c, &o);
+  cexec_d({"git", "clone", url, dp}, "", &o);
 
   if (dExists(dp + "/.git")) {
     return true;
