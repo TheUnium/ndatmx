@@ -30,6 +30,26 @@ output:
 
 ## usage
 
+### 0. example config
+
+```toml
+[daemon]
+poll_interval = 5
+log_retention = 14
+restart_on_exit = true
+restart_on_success = false
+max_retries = 5
+
+[commands:termux]
+1="pkg install -y bun"
+2="bun install"
+3="bun run src/index.ts"
+
+[commands:debian13]
+3="bun install"
+4="bun run src/index.ts"
+```
+
 ### 1. start the daemon
 
 start the daemon using the cli:
