@@ -1,0 +1,43 @@
+project {
+    name = "ndatmx",
+    version = "0.1.0",
+    description = "project manager thing",
+    language = "cpp",
+    cpp_standard = 17
+}
+
+executable "ndatmx" {
+    src = [
+        globs { "cli/**.cpp" }
+    ]
+    include = {
+        public = ["."]
+    },
+    configs {
+        debug {
+            flags = ["-pthread", "-Wall"]
+        }
+        release {
+            defines = ["NDEBUG"],
+            flags = ["-pthread", "-O2"]
+        }
+    }
+}
+
+executable "ndatmxd" {
+    src = [
+        globs { "daemon/**.cpp" }
+    ]
+    include = {
+        public = ["."]
+    },
+    configs {
+        debug {
+            flags = ["-pthread", "-Wall"]
+        }
+        release {
+            defines = ["NDEBUG"],
+            flags = ["-pthread", "-O2"]
+        }
+    }
+}
