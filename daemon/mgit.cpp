@@ -22,7 +22,9 @@ static bool fExists(const std::string &p) {
 static int cexec(const std::string &c, std::string *o) {
   if (o)
     o->clear();
-  std::string t = "/tmp/ndatmx_cmd_" + std::to_string(getpid()) + ".out";
+  const char *tmp_env = std::getenv("TMPDIR");
+  std::string tmp_dir = tmp_env ? tmp_env : "/tmp";
+  std::string t = tmp_dir + "/ndatmx_cmd_" + std::to_string(getpid()) + ".out";
   std::string f = c + " > '" + t + "' 2>&1";
 
   int rc = system(f.c_str());
